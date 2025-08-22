@@ -100,7 +100,7 @@ async function reserveBox(kutu, panoId) {
 
         if (updateData.success) {
             orderNumberSpan.textContent = guncelVeri.siparis;
-            accountNameSpan.textContent = `${benimAdim} ${benimSoyadim}`;
+            accountNameSpan.textContent = `${benimADİN} ${benimSoyadim}`;
             ibanNumberSpan.textContent = benimIbanim;
             emailAddressSpan.textContent = benimEmailim;
             

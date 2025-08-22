@@ -27,13 +27,13 @@
             color: #333;
             margin-bottom: 20px;
         }
-        #adminLogin, .upload-form, .search-form {
+        #adminLogin, .upload-form, .search-form, .reset-form {
             border: 2px solid #ccc;
             border-radius: 5px;
             padding: 20px;
             margin-bottom: 20px;
         }
-        #adminLogin h3, .upload-form h3, .search-form h3 {
+        #adminLogin h3, .upload-form h3, .search-form h3, .reset-form h3 {
             margin-top: 0;
         }
         input[type="password"], input[type="file"], input[type="text"] {
@@ -96,6 +96,11 @@
                 </div>
                 <input type="file" id="photoInput" accept="image/*">
                 <button id="uploadButton">Fotoğrafı Yükle ve Onayla</button>
+            </div>
+            <div class="reset-form">
+                <h3>Kutu Durumunu Sıfırla</h3>
+                <p>Seçilen kutu: <span id="resetBoxInfo"></span></p>
+                <button id="resetButton">Kutuyu Sıfırla</button>
             </div>
         </div>
     </div>

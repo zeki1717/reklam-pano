@@ -13,6 +13,10 @@ const photoInput = document.getElementById('photoInput');
 const uploadButton = document.getElementById('uploadButton');
 const selectedBoxInfo = document.getElementById('selectedBoxInfo');
 
+const resetButton = document.getElementById('resetButton');
+const resetBoxInfo = document.getElementById('resetBoxInfo');
+
+
 let panolar = [];
 
 const ADMIN_PASSWORD = 'admin123';
@@ -68,11 +72,13 @@ function updateBoxOptions(selectedBoxId = null) {
     }
 
     selectedBoxInfo.textContent = `Pano ${selectedPanoId}, Kutu ${boxSelect.value}`;
+    resetBoxInfo.textContent = `Pano ${selectedPanoId}, Kutu ${boxSelect.value}`;
 }
 
 boxSelect.addEventListener('change', () => {
     const selectedPanoId = parseInt(panoSelect.value);
     selectedBoxInfo.textContent = `Pano ${selectedPanoId}, Kutu ${boxSelect.value}`;
+    resetBoxInfo.textContent = `Pano ${selectedPanoId}, Kutu ${boxSelect.value}`;
 });
 
 uploadButton.addEventListener('click', async () => {
@@ -154,5 +160,34 @@ searchButton.addEventListener('click', async () => {
     } catch (error) {
         console.error('Arama hatası:', error);
         searchResult.textContent = 'Arama sırasında bir hata oluştu.';
+    }
+});
+
+resetButton.addEventListener('click', async () => {
+    const selectedPanoId = parseInt(panoSelect.value);
+    const selectedBoxId = parseInt(boxSelect.value);
+
+    if (confirm(`Pano ${selectedPanoId}, Kutu ${selectedBoxId} sıfırlansın mı?`)) {
+        try {
+            const response = await fetch('/api/panolar/reset', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ panoId: selectedPanoId, boxId: selectedBoxId })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Kutu sıfırlanırken bir hata oluştu.');
+            }
+        } catch (error) {
+            console.error('API isteği başarısız:', error);
+            alert('Bir hata oluştu. Lütfen tekrar deneyin.');
+        }
     }
 });

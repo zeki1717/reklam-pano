@@ -11,11 +11,10 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static('public'));
 
-// MongoDB Bağlantısı
-const dbURI = 'mongodb+srv://zertugrul178:Zeki1717@cluster0.jbnivmq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
-// Lütfen yukarıdaki adresi kendi MongoDB bağlantı adresinizle değiştirin.
+// MongoDB Bağlantısı - Lütfen Kendi Adresinizi Girin!
+const dbURI = process.env.dbURI || 'mongodb+srv://zertugrul178:Zeki1717@cluster0.jbnivmq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 
-mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(dbURI)
     .then((result) => {
         console.log('Veritabanı bağlantısı başarılı!');
         
@@ -25,7 +24,8 @@ mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
                 id: Number,
                 durum: String,
                 siparis: String,
-                foto: String
+                foto: String,
+                reserveTimestamp: Date
             }]
         });
 
@@ -40,7 +40,8 @@ mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
                             id: j,
                             durum: 'bos',
                             siparis: null,
-                            foto: null
+                            foto: null,
+                            reserveTimestamp: null
                         });
                     }
                     initialPanos.push({ panoId: i, kutular: kutular });
@@ -76,7 +77,6 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // API Uç Noktaları
-
 app.get('/api/panolar', async (req, res) => {
     try {
         const Pano = mongoose.model('Pano');
@@ -93,7 +93,12 @@ app.put('/api/panolar/update', async (req, res) => {
         const { panoId, boxId, durum, siparis, foto } = req.body;
 
         const updateData = {};
-        if (durum !== undefined) updateData['kutular.$.durum'] = durum;
+        if (durum !== undefined) {
+            updateData['kutular.$.durum'] = durum;
+            if (durum === 'bekliyor') {
+                updateData['kutular.$.reserveTimestamp'] = new Date();
+            }
+        }
         if (siparis !== undefined) updateData['kutular.$.siparis'] = siparis;
         if (foto !== undefined) updateData['kutular.$.foto'] = foto;
 
@@ -113,6 +118,32 @@ app.put('/api/panolar/update', async (req, res) => {
     }
 });
 
+app.put('/api/panolar/reset', async (req, res) => {
+    try {
+        const Pano = mongoose.model('Pano');
+        const { panoId, boxId } = req.body;
+
+        const result = await Pano.findOneAndUpdate(
+            { panoId: panoId, 'kutular.id': boxId },
+            { $set: { 
+                'kutular.$.durum': 'bos',
+                'kutular.$.siparis': null,
+                'kutular.$.foto': null,
+                'kutular.$.reserveTimestamp': null
+            }},
+            { new: true }
+        );
+
+        if (!result) {
+            return res.status(404).json({ success: false, error: 'Pano veya kutu bulunamadı.' });
+        }
+
+        res.json({ success: true, message: 'Kutu başarıyla sıfırlandı.' });
+    } catch (err) {
+        res.status(500).json({ success: false, error: 'Kutuyu sıfırlarken hata oluştu.' });
+    }
+});
+
 app.post('/api/upload', upload.single('photo'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ success: false, error: 'Dosya yüklenemedi.' });
@@ -121,7 +152,6 @@ app.post('/api/upload', upload.single('photo'), (req, res) => {
     res.json({ success: true, photoPath: photoPath });
 });
 
-// Sipariş numarasına göre pano ve kutu bulma
 app.get('/api/panolar/search', async (req, res) => {
     try {
         const Pano = mongoose.model('Pano');
@@ -156,3 +186,35 @@ app.get('/', (req, res) => {
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
+
+// Her saat başı çalışacak otomatik kontrol mekanizması
+setInterval(async () => {
+    const Pano = mongoose.model('Pano');
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    try {
+        const panolarToReset = await Pano.find({
+            'kutular.durum': 'bekliyor',
+            'kutular.reserveTimestamp': { $lt: twentyFourHoursAgo }
+        });
+
+        for (const pano of panolarToReset) {
+            for (const kutu of pano.kutular) {
+                if (kutu.durum === 'bekliyor' && kutu.reserveTimestamp < twentyFourHoursAgo) {
+                    kutu.durum = 'bos';
+                    kutu.siparis = null;
+                    kutu.foto = null;
+                    kutu.reserveTimestamp = null;
+                }
+            }
+            await pano.save();
+        }
+
+        if (panolarToReset.length > 0) {
+            console.log(`${panolarToReset.length} adet bekleyen kutu otomatik olarak sıfırlandı.`);
+        }
+
+    } catch (error) {
+        console.error('Otomatik sıfırlama hatası:', error);
+    }
+}, 3600000); // 3600000 milisaniye = 1 saat
